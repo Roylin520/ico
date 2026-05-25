@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系統圖示產生器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {
+            background-color: #f3f4f6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .icon-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        .icon-grid-item {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 24px;
+            color: #4b5563;
+        }
+        .icon-grid-item:hover {
+            transform: scale(1.1);
+            background-color: #e5e7eb;
+        }
+        .icon-grid-item.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        #uploaded-preview {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+        #preview-icon {
+            transition: all 0.2s ease;
+        }
+        /* 隱藏左側滾動條但保留功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 text-gray-800 min-h-screen flex flex-col">
+    
+    <div class="max-w-6xl mx-auto w-full flex-1 bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
+        
+        <!-- 左側設定區 -->
+        <div class="w-full md:w-5/12 p-6 md:p-8 border-b md:border-b-0 md:border-r border-gray-100">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                <i class="fa-solid fa-wand-magic-sparkles text-blue-500"></i>
+                圖示產生器
+            </h1>
+            
+            <div class="space-y-8">
+                
+                <!-- 1. 選擇來源 -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700 border-b pb-2">1. 選擇圖示來源</h2>
+                    
+                    <!-- 圖片上傳區塊 -->
+                    <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-100 relative">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">上傳自訂圖片</label>
+                        <div class="flex items-center justify-center w-full">
+                            <label for="image-upload" class="flex flex-col items-center justify-center w-full h-24 border-2 border-blue-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition duration-200">
+                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <i class="fa-solid fa-cloud-arrow-up text-blue-500 text-2xl mb-2"></i>
+                                    <p class="text-xs text-gray-500 font-medium">點擊或拖曳上傳圖片 (PNG, JPG, SVG)</p>
+                                </div>
+                                <input id="image-upload" type="file" class="hidden" accept="image/png, image/jpeg, image/svg+xml" />
+                            </label>
+                        </div>
+                        <div class="mt-2 flex justify-end">
+                            <button id="clear-upload" class="text-xs text-red-500 hover:text-red-700 hidden transition font-medium flex items-center gap-1 bg-red-50 px-2 py-1 rounded">
+                                <i class="fa-solid fa-trash-can"></i> 清除圖片
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 內建圖示庫 -->
+                    <label class="block text-sm font-medium text-gray-700 mb-2">或從圖示庫選擇</label>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div id="icon-grid" class="flex flex-wrap gap-2">
+                            <!-- JS 動態生成圖示 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 調整外觀 -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700 border-b pb-2">2. 調整外觀</h2>
+                    <div class="space-y-5">
+                        
+                        <!-- 顏色設定 -->
+                        <div class="flex gap-4">
+                            <div class="flex-1 transition-opacity duration-200" id="icon-color-wrapper">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">圖示顏色</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" id="icon-color" value="#ffffff" class="h-10 w-full rounded cursor-pointer border border-gray-300">
+                                </div>
+                            </div>
+                            <div class="flex-1 transition-opacity duration-200" id="bg-color-wrapper">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">背景顏色</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" id="bg-color" value="#3b82f6" class="h-10 w-full rounded cursor-pointer border border-gray-300">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 透明背景開關 -->
+                        <div class="flex items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
+                            <input id="bg-transparent" type="checkbox" class="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
+                            <label for="bg-transparent" class="ml-2 text-sm font-medium text-gray-700 cursor-pointer select-none">使用透明背景 (適合不規則形狀)</label>
+                        </div>
+
+                        <!-- 上傳圖片專用設定 (預設隱藏) -->
+                        <div id="image-specific-settings" class="hidden bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <div class="flex justify-between mb-2">
+                                <label class="block text-sm font-medium text-gray-700">圖片本身圓角 (如 App 圖示)</label>
+                                <span id="image-radius-value" class="text-sm font-bold text-blue-600">0%</span>
+                            </div>
+                            <input type="range" id="image-radius-slider" min="0" max="50" value="0" class="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+
+                        <!-- 尺寸設定 -->
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                            <div class="flex justify-between mb-2">
+                                <label class="block text-sm font-medium text-gray-700">圖示大小</label>
+                                <span id="size-value" class="text-sm font-bold text-blue-600">64px</span>
+                            </div>
+                            <input type="range" id="size-slider" min="16" max="360" value="64" class="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+
+                        <!-- 圓角設定 -->
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                            <div class="flex justify-between mb-2">
+                                <label class="block text-sm font-medium text-gray-700">背景圓角</label>
+                                <span id="radius-value" class="text-sm font-bold text-blue-600">16px</span>
+                            </div>
+                            <input type="range" id="radius-slider" min="0" max="100" value="16" class="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+
+                        <!-- 內邊距設定 -->
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                            <div class="flex justify-between mb-2">
+                                <label class="block text-sm font-medium text-gray-700">四周留白 (內邊距)</label>
+                                <span id="padding-value" class="text-sm font-bold text-blue-600">24px</span>
+                            </div>
+                            <input type="range" id="padding-slider" min="0" max="100" value="24" class="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                            <p id="padding-hint" class="text-xs text-amber-600 mt-2 hidden"><i class="fa-solid fa-triangle-exclamation"></i> 提示：若要讓圖示在桌面上看起來最大，請將留白設為 0px</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側預覽區 -->
+        <div class="w-full md:w-7/12 p-6 md:p-8 bg-slate-50 flex flex-col justify-between">
+            <div>
+                <h2 class="text-xl font-semibold mb-4 text-gray-700 border-b pb-2">3. 預覽與匯出</h2>
+                <p class="text-sm text-gray-500 mb-6">所有的變更會即時顯示在下方，確認無誤後即可下載。</p>
+            </div>
+            
+            <div class="flex-1 flex flex-col justify-center items-center relative">
+                
+                <!-- 預覽容器 (背景加上網格圖案以顯示透明度) -->
+                <div class="bg-white p-8 rounded-xl border-2 border-dashed border-gray-300 mb-8 w-full flex justify-center items-center relative overflow-hidden" 
+                     style="min-height: 350px; background-image: linear-gradient(45deg, #f0f0f0 25%, transparent 25%), linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f0f0f0 75%), linear-gradient(-45deg, transparent 75%, #f0f0f0 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px;">
+                    
+                    <!-- 實際要截圖的目標容器 -->
+                    <div id="preview-container" class="icon-container" style="background-color: #3b82f6; border-radius: 16px; padding: 24px;">
+                        <i id="preview-icon" class="fa-solid fa-star" style="color: #ffffff; font-size: 64px;"></i>
+                        <img id="uploaded-preview" src="" alt="自訂圖片" />
+                    </div>
+                    
+                </div>
+
+                <!-- 匯出按鈕 -->
+                <div class="w-full max-w-md mx-auto">
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button id="download-png" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-xl transition duration-200 flex justify-center items-center gap-2 transform hover:-translate-y-1">
+                            <i class="fa-solid fa-image text-xl"></i> 
+                            <span>下載高畫質 PNG</span>
+                        </button>
+                        <button id="download-ico" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-xl transition duration-200 flex justify-center items-center gap-2 transform hover:-translate-y-1">
+                            <i class="fa-brands fa-windows text-xl"></i> 
+                            <span>下載系統 ICO</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM 元素選取
+            const iconGrid = document.getElementById('icon-grid');
+            const previewContainer = document.getElementById('preview-container');
+            const previewIcon = document.getElementById('preview-icon');
+            const uploadedPreview = document.getElementById('uploaded-preview');
+            
+            const iconColorInput = document.getElementById('icon-color');
+            const iconColorWrapper = document.getElementById('icon-color-wrapper');
+            const bgColorInput = document.getElementById('bg-color');
+            const bgColorWrapper = document.getElementById('bg-color-wrapper');
+            const bgTransparentInput = document.getElementById('bg-transparent');
+            
+            const sizeInput = document.getElementById('size-slider');
+            const sizeValue = document.getElementById('size-value');
+            
+            const radiusInput = document.getElementById('radius-slider');
+            const radiusValue = document.getElementById('radius-value');
+            
+            const paddingInput = document.getElementById('padding-slider');
+            const paddingValue = document.getElementById('padding-value');
+
+            const imageUpload = document.getElementById('image-upload');
+            const clearUploadBtn = document.getElementById('clear-upload');
+
+            const imageSpecificSettings = document.getElementById('image-specific-settings');
+            const imageRadiusInput = document.getElementById('image-radius-slider');
+            const imageRadiusValue = document.getElementById('image-radius-value');
+            const paddingHint = document.getElementById('padding-hint');
+
+            // 狀態變數
+            let currentIconClass = 'fa-star';
+            let isUsingUploadedImage = false;
+
+            // 預設 FontAwesome 圖示集
+            const icons = [
+                'fa-star', 'fa-heart', 'fa-house', 'fa-user', 'fa-check',
+                'fa-envelope', 'fa-phone', 'fa-magnifying-glass', 'fa-bell', 'fa-gear',
+                'fa-camera', 'fa-globe', 'fa-location-dot', 'fa-lock', 'fa-key',
+                'fa-music', 'fa-video', 'fa-file', 'fa-folder', 'fa-trash',
+                'fa-fire', 'fa-bolt', 'fa-cloud', 'fa-sun', 'fa-moon',
+                'fa-cart-shopping', 'fa-store', 'fa-pen', 'fa-bookmark', 'fa-paper-plane'
+            ];
+
+            // 初始化左側圖示庫
+            function initIconGrid() {
+                iconGrid.innerHTML = '';
+                icons.forEach(iconClass => {
+                    const el = document.createElement('div');
+                    el.className = `icon-grid-item ${iconClass === currentIconClass && !isUsingUploadedImage ? 'active' : ''}`;
+                    el.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
+                    el.addEventListener('click', () => {
+                        // 如果原本在使用上傳圖片，切換回圖示模式
+                        if(isUsingUploadedImage) {
+                            clearUploadImage();
+                        }
+                        // 更新樣式
+                        document.querySelectorAll('.icon-grid-item').forEach(i => i.classList.remove('active'));
+                        el.classList.add('active');
+                        currentIconClass = iconClass;
+                        previewIcon.className = `fa-solid ${iconClass}`;
+                        updatePreview();
+                    });
+                    iconGrid.appendChild(el);
+                });
+            }
+
+            // 清除上傳的圖片
+            function clearUploadImage() {
+                isUsingUploadedImage = false;
+                uploadedPreview.src = '';
+                imageUpload.value = '';
+                
+                // 切換顯示
+                previewIcon.style.display = 'inline-block';
+                uploadedPreview.style.display = 'none';
+                clearUploadBtn.classList.add('hidden');
+                imageSpecificSettings.classList.add('hidden');
+                imageRadiusInput.value = 0;
+                uploadedPreview.style.borderRadius = '0%';
+                
+                // 解鎖顏色選擇器
+                iconColorInput.disabled = false;
+                iconColorWrapper.classList.remove('opacity-50', 'cursor-not-allowed');
+                
+                // 恢復當前選中標記
+                document.querySelectorAll('.icon-grid-item').forEach(el => {
+                    if (el.querySelector(`.${currentIconClass}`)) {
+                        el.classList.add('active');
+                    }
+                });
+                
+                updatePreview();
+            }
+
+            // 處理使用者上傳圖片
+            imageUpload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    uploadedPreview.src = event.target.result;
+                    isUsingUploadedImage = true;
+                    
+                    // 切換顯示模式
+                    previewIcon.style.display = 'none';
+                    uploadedPreview.style.display = 'block';
+                    clearUploadBtn.classList.remove('hidden');
+                    imageSpecificSettings.classList.remove('hidden');
+                    
+                    // 💡 智慧貼心設定：上傳圖片時，自動將內邊距歸零，確保系統圖示滿版不縮小
+                    paddingInput.value = 0;
+                    
+                    // 鎖定字體顏色選擇器 (因為使用真實圖片)
+                    iconColorInput.disabled = true;
+                    iconColorWrapper.classList.add('opacity-50', 'cursor-not-allowed');
+                    
+                    // 移除左側圖示選中狀態
+                    document.querySelectorAll('.icon-grid-item').forEach(i => i.classList.remove('active'));
+                    
+                    updatePreview();
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // 綁定清除按鈕
+            clearUploadBtn.addEventListener('click', clearUploadImage);
+
+            // 更新右側的即時預覽
+            function updatePreview() {
+                // 1. 更新顏色 (文字圖示)
+                if (!isUsingUploadedImage) {
+                    previewIcon.style.color = iconColorInput.value;
+                }
+                
+                // 2. 更新背景透明度與顏色
+                if (bgTransparentInput.checked) {
+                    previewContainer.style.backgroundColor = 'transparent';
+                    previewContainer.style.boxShadow = 'none';
+                    bgColorInput.disabled = true;
+                    bgColorWrapper.classList.add('opacity-50');
+                } else {
+                    previewContainer.style.backgroundColor = bgColorInput.value;
+                    previewContainer.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+                    bgColorInput.disabled = false;
+                    bgColorWrapper.classList.remove('opacity-50');
+                }
+
+                // 3. 更新圖示大小
+                const size = parseInt(sizeInput.value);
+                if (isUsingUploadedImage) {
+                    uploadedPreview.style.width = size + 'px';
+                    uploadedPreview.style.height = size + 'px';
+                    
+                    // 根據滑桿數值設定圖片圓角 (0% 矩形 ~ 50% 圓形)
+                    const imgRadius = imageRadiusInput.value;
+                    uploadedPreview.style.borderRadius = imgRadius + '%';
+                    uploadedPreview.style.objectFit = 'cover';
+                    imageRadiusValue.textContent = imgRadius + '%';
+                } else {
+                    previewIcon.style.fontSize = size + 'px';
+                }
+                sizeValue.textContent = size + 'px';
+
+                // 4. 更新內邊距與容器大小
+                const padding = parseInt(paddingInput.value);
+                previewContainer.style.padding = padding + 'px';
+                paddingValue.textContent = padding + 'px';
+
+                // 顯示/隱藏內邊距提示
+                if (padding > 0 && bgTransparentInput.checked && isUsingUploadedImage) {
+                    paddingHint.classList.remove('hidden');
+                } else {
+                    paddingHint.classList.add('hidden');
+                }
+
+                // 計算容器總大小 (圖示大小 + 上下或左右的 padding)
+                const containerSize = size + (padding * 2);
+                previewContainer.style.width = containerSize + 'px';
+                previewContainer.style.height = containerSize + 'px';
+                
+                // 5. 更新背景圓角 (最大不超過容器的一半，保持為正圓)
+                let radius = parseInt(radiusInput.value);
+                const maxRadius = containerSize / 2;
+                if (radius > maxRadius) {
+                    radius = maxRadius; // 動態限制最大圓角
+                }
+                previewContainer.style.borderRadius = radius + 'px';
+                
+                // 若滑桿的值超過實際可見圓角，提供視覺提示
+                if(parseInt(radiusInput.value) > maxRadius) {
+                    radiusValue.textContent = `${radiusInput.value}px (已達上限 ${Math.round(maxRadius)}px)`;
+                } else {
+                    radiusValue.textContent = radius + 'px';
+                }
+            }
+
+            // 綁定所有設定列的事件監聽
+            iconColorInput.addEventListener('input', updatePreview);
+            bgColorInput.addEventListener('input', updatePreview);
+            bgTransparentInput.addEventListener('change', updatePreview);
+            sizeInput.addEventListener('input', updatePreview);
+            radiusInput.addEventListener('input', updatePreview);
+            paddingInput.addEventListener('input', updatePreview);
+            imageRadiusInput.addEventListener('input', updatePreview);
+
+            // 產生用於下載的 Canvas 核心函式
+            function generateCanvas() {
+                // 為了避免截圖有陰影毛邊，暫存並清除 box-shadow
+                const originalBoxShadow = previewContainer.style.boxShadow;
+                previewContainer.style.boxShadow = 'none';
+
+                return html2canvas(previewContainer, {
+                    backgroundColor: bgTransparentInput.checked ? null : bgColorInput.value,
+                    scale: 4, // 設定較高的 scale 以獲得高解析度 (例如 512x512 以上)
+                    logging: false,
+                    useCORS: true
+                }).then(canvas => {
+                    // 恢復原本外觀
+                    previewContainer.style.boxShadow = originalBoxShadow;
+                    return canvas;
+                });
+            }
+
+            // [下載按鈕] 下載 PNG 格式
+            document.getElementById('download-png').addEventListener('click', () => {
+                const btn = document.getElementById('download-png');
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xl"></i> 處理中...';
+                
+                generateCanvas().then(canvas => {
+                    const link = document.createElement('a');
+                    const fileNameBase = isUsingUploadedImage ? 'custom-image' : currentIconClass.replace('fa-', '');
+                    link.download = `icon-${fileNameBase}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    btn.innerHTML = originalHTML;
+                }).catch(err => {
+                    console.error("匯出圖片失敗:", err);
+                    alert("匯出圖片時發生錯誤，請稍後再試。");
+                    btn.innerHTML = originalHTML;
+                });
+            });
+
+            // [下載按鈕] 下載 ICO 格式 (封裝處理)
+            document.getElementById('download-ico').addEventListener('click', () => {
+                const btn = document.getElementById('download-ico');
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xl"></i> 轉換中...';
+
+                generateCanvas().then(canvas => {
+                    // 建立標準 256x256 畫布
+                    const icoCanvas = document.createElement('canvas');
+                    icoCanvas.width = 256;
+                    icoCanvas.height = 256;
+                    const ctx = icoCanvas.getContext('2d');
+                    
+                    // 平滑縮放演算法繪製
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, 256, 256);
+
+                    // 轉二進制封裝
+                    icoCanvas.toBlob(async (blob) => {
+                        try {
+                            const arrayBuffer = await blob.arrayBuffer();
+                            const pngBytes = new Uint8Array(arrayBuffer);
+                            const icoSize = 22 + pngBytes.length; // 6 bytes header + 16 bytes directory + data
+                            const buffer = new ArrayBuffer(icoSize);
+                            const view = new DataView(buffer);
+
+                            // 1. ICO 標頭 (ICONDIR) - 6 bytes
+                            view.setUint16(0, 0, true); // Reserved
+                            view.setUint16(2, 1, true); // Type (1 = ICO)
+                            view.setUint16(4, 1, true); // Image Count (1)
+
+                            // 2. 圖片目錄 (ICONDIRENTRY) - 16 bytes
+                            view.setUint8(6, 0); // Width (0 = 256px)
+                            view.setUint8(7, 0); // Height (0 = 256px)
+                            view.setUint8(8, 0); // Color Palette
+                            view.setUint8(9, 0); // Reserved
+                            view.setUint16(10, 1, true); // Color Planes
+                            view.setUint16(12, 32, true); // Bits per Pixel
+                            view.setUint32(14, pngBytes.length, true); // Data Size
+                            view.setUint32(18, 22, true); // Data Offset
+
+                            // 3. 寫入 PNG 圖像數據
+                            const icoBytes = new Uint8Array(buffer);
+                            icoBytes.set(pngBytes, 22);
+
+                            // 4. 觸發下載
+                            const icoBlob = new Blob([buffer], { type: 'image/x-icon' });
+                            const url = URL.createObjectURL(icoBlob);
+                            const link = document.createElement('a');
+                            const fileNameBase = isUsingUploadedImage ? 'custom-image' : currentIconClass.replace('fa-', '');
+                            link.download = `icon-${fileNameBase}.ico`;
+                            link.href = url;
+                            link.click();
+                            
+                            setTimeout(() => URL.revokeObjectURL(url), 100);
+                            btn.innerHTML = originalHTML;
+                        } catch (e) {
+                            console.error("ICO打包失敗:", e);
+                            alert("生成 ICO 時發生錯誤。");
+                            btn.innerHTML = originalHTML;
+                        }
+                    }, 'image/png');
+                }).catch(err => {
+                    console.error("匯出 ICO 失敗:", err);
+                    alert("擷取預覽畫面時發生錯誤。");
+                    btn.innerHTML = originalHTML;
+                });
+            });
+
+            // 初始化執行
+            initIconGrid();
+            updatePreview();
+        });
+    </script>
+</body>
+</html>
